@@ -1,0 +1,5 @@
+DB_URL="mongodb+srv://<username>:<password>@<databaseurl>"
+ACCESS_TOKEN_SECRET = "access token secret";
+REFRESH_TOKEN_SECRET = "refresh token secret";
+jwtExpires: 1000 * 60 * 60 * 24
+jwtSecret: "jwt secret",
