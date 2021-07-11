@@ -1,3 +1,11 @@
+/*
+ * Auth Controller  is the module resoponsible for
+ * the authentication / authorization of the  web layer
+ * either of GraphQL or REST api
+ * and it's return is the last endpoint to the response
+ *
+ */
+
 const auth = require("./auth.jwt.js");
 
 // ==================================================================
@@ -11,13 +19,22 @@ const auth = require("./auth.jwt.js");
 
 // ==================================================================
 
-/* Post Register , Login ( Call the database  ) */
+/* Post Register */
 
-const register = async ({ username, password }) => {
+const register = async ({ username, password }, { res }) => {
   try {
-    const { user } = await auth.signUp({ username, password, count: 0 });
+    const user = await auth.signUp({ username, password, count: 0 });
     if (!user) return false;
-    return true;
+    // in case you use cookies
+    /*
+        res.cookie("refresh-token", refreshToken, {
+          maxAge: 1000 * 60 * 60 * 24 * 7,
+        });
+        res.cookie("access-token", accessToken, {
+          maxAge: 1000 * 60 * 60 * 24,
+        });
+    */
+    return user;
   } catch (err) {
     console.error(err.message);
     console.error(err);
@@ -26,24 +43,21 @@ const register = async ({ username, password }) => {
 
 // ==================================================================
 
+/* Login Register */
+
 const login = async ({ username, password }, { res }) => {
   try {
-    const { user, refreshToken, accessToken } = await auth.logIn({
-      username,
-      password,
-    });
-
+    const user = await auth.logIn({ username, password });
     if (!user) return false;
-
-    res.cookie("refresh-token", refreshToken, {
-      maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
-    res.cookie("access-token", accessToken, {
-      maxAge: 1000 * 60 * 60 * 24,
-    });
-
-    user.accessToken = accessToken;
-    user.refreshToken = refreshToken;
+    // in case you use cookies
+    /*
+        res.cookie("refresh-token", refreshToken, {
+          maxAge: 1000 * 60 * 60 * 24 * 7,
+        });
+        res.cookie("access-token", accessToken, {
+          maxAge: 1000 * 60 * 60 * 24,
+        });
+    */
     return user;
   } catch (err) {
     console.error(err.message);
@@ -54,12 +68,18 @@ const login = async ({ username, password }, { res }) => {
 // ==================================================================
 
 // Authentication middle ware
-const protect = async (req, res, next) => {
+const protect = async (req, res) => {
   try {
-    console.log("req", req.body);
-    next();
+    if (!req.headers.authorization) return null; // no tokens
+
+    const { accessToken, refreshToken } = JSON.parse(req.headers.authorization);
+    const verifiedUser = await auth.protect(accessToken, refreshToken);
+
+    if (!verifiedUser) return null; // unAuthenticated
+    return verifiedUser;
   } catch (err) {
-    next(err);
+    console.error(err.message);
+    console.error(err);
   }
 };
 

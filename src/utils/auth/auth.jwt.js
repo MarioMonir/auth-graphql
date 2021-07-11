@@ -19,7 +19,7 @@ const newRefreshToken = (user) =>
     { id: user._id, count: user.count },
     process.env.REFRESH_TOKEN_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn: "2m",
     }
   );
 
@@ -27,7 +27,7 @@ const newRefreshToken = (user) =>
 
 const newAccessToken = (user) =>
   jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "1h",
+    expiresIn: "1m",
   });
 
 // ================================================================
@@ -37,9 +37,9 @@ const newAccessToken = (user) =>
 // from the same server
 // token comes in user comes out
 const verifyToken = (token, secret) =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve) => {
     jwt.verify(token, secret, (err, payload) => {
-      if (err) return reject(err);
+      if (err) resolve(null);
 
       return resolve(payload);
     });
@@ -53,10 +53,13 @@ const verifyToken = (token, secret) =>
 const signUp = async (payload) => {
   try {
     const user = await crud.create("user", payload);
-    const refreshToken = newRefreshToken(user);
-    const accessToken = newAccessToken(user);
-    return { user, refreshToken, accessToken };
+    if (!user) return false;
+    user.refreshToken = newRefreshToken(user);
+    user.accessToken = newAccessToken(user);
+    return user;
   } catch (err) {
+    console.error(err.message);
+    console.error(err);
     throw err;
   }
 };
@@ -74,14 +77,30 @@ const logIn = async ({ username, password }) => {
     const match = await user.checkPassword(password);
     if (!match) return false;
 
-    const refreshToken = newRefreshToken(user);
-    const accessToken = newAccessToken(user);
+    user.refreshToken = newRefreshToken(user);
+    user.accessToken = newAccessToken(user);
 
-    return { user, refreshToken, accessToken };
+    return user;
   } catch (err) {
+    console.error(err.message);
+    console.error(err);
     throw err;
   }
 };
+
+// ==================================================================
+
+/*
+ *  4 cases of authentication
+ *
+ *  tokens are passed through requset headers authorization
+ *
+ *  case 1 : access  token is valid   -> return user
+ *  case 2 : refresh token is valid   -> return user with new tokens
+ *  case 3 : refresh token is invalid -> return null (unauthenticated)
+ *  case 4 : invalid or no tokens (invalid not expired) -> return null
+ *
+ * */
 
 // ==================================================================
 
@@ -89,16 +108,48 @@ const logIn = async ({ username, password }) => {
 // check if the given token is verified
 // check if the payload of user id of the vverified token is in the database
 // token comes in user comes out
-const protect = async (token, secret) => {
+const protect = async (accessToken, refreshToken) => {
   try {
-    const payload = await verifyToken(token, secret);
-    if (!payload) return false;
+    // verified access token payload
+    let payload = await verifyToken(
+      accessToken,
+      process.env.ACCESS_TOKEN_SECRET
+    );
 
-    const user = await crud.findOne("user", { _id: payload.id });
-    if (!user) return false;
+    // case 1
+    if (payload) {
+      let user = await crud.findOne("user", { _id: payload.id });
+      if (!user) {
+        console.log("here because of in valid access token");
+        return false;
+      }
+      return user;
+    }
 
+    // case 2
+    payload = await verifyToken(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    if (!payload) {
+      console.log("here because of expired refresh token ");
+      return false; // refresh token also expired need to login
+    }
+    let user = await crud.findOne("user", { _id: payload.id });
+
+    // case 3
+    console.log(" payload count ");
+    if (payload.count !== user.count) {
+      console.log("false here because count");
+      return false;
+    }
+    user.count += 1;
+    await user.save();
+
+    user.accessToken = newAccessToken(user);
+    user.accessToken = newAccessToken(user);
+    console.log("update the tokens ");
     return user;
   } catch (err) {
+    console.error(err.message);
+    console.error(err);
     throw err;
   }
 };

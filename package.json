@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "start": "ts-node-dev --respawn src/app.ts",
-    "dev": "node dist/app.js"
+    "dev": "node dist/app.js",
+    "test": "node src/utils/test/test.server.js"
   },
   "dependencies": {
     "@types/node": "^16.0.1",
@@ -21,6 +22,7 @@
     "mongoose": "^5.13.2"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.2",
     "ts-node": "^10.0.0",
     "ts-node-dev": "^1.1.8",
     "typescript": "^4.3.5"
