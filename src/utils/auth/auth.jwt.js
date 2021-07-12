@@ -19,7 +19,7 @@ const newRefreshToken = (user) =>
     { id: user._id, count: user.count },
     process.env.REFRESH_TOKEN_SECRET,
     {
-      expiresIn: "2m",
+      expiresIn: "15d",
     }
   );
 
@@ -27,7 +27,7 @@ const newRefreshToken = (user) =>
 
 const newAccessToken = (user) =>
   jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "1m",
+    expiresIn: "1h",
   });
 
 // ================================================================
@@ -123,28 +123,37 @@ const protect = async (accessToken, refreshToken) => {
         console.log("here because of in valid access token");
         return false;
       }
-      return user;
+
+      // no need to refresh the tokens
+      user.accessToken = "";
+      user.refreshToken = "";
+      console.log("valid access token");
+      return user; // case 1 halt
     }
 
     // case 2
     payload = await verifyToken(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+    // case 3
     if (!payload) {
-      console.log("here because of expired refresh token ");
-      return false; // refresh token also expired need to login
+      console.log("here because of expired refresh token need to login ");
+      return false; // case 3 halt refresh token also expired or invalid need to login
     }
+
+    console.log("in valid access token but valid refresh token");
     let user = await crud.findOne("user", { _id: payload.id });
 
     // case 3
-    console.log(" payload count ");
-    if (payload.count !== user.count) {
-      console.log("false here because count");
-      return false;
-    }
-    user.count += 1;
-    await user.save();
+    // console.log(" payload count ");
+    // if (payload.count !== user.count) {
+    //   console.log("false here because count");
+    //   return false;
+    // }
+    // user.count += 1;
+    // await user.save();
 
     user.accessToken = newAccessToken(user);
-    user.accessToken = newAccessToken(user);
+    user.refreshToken = newRefreshToken(user);
     console.log("update the tokens ");
     return user;
   } catch (err) {

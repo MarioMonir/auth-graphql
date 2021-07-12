@@ -70,9 +70,12 @@ const login = async ({ username, password }, { res }) => {
 // Authentication middle ware
 const protect = async (req, res) => {
   try {
-    if (!req.headers.authorization) return null; // no tokens
-
-    const { accessToken, refreshToken } = JSON.parse(req.headers.authorization);
+    if (!req.headers.authorization) {
+      console.log("No Tokens");
+      return null; // no acess token
+    }
+      
+      const { accessToken, refreshToken } = JSON.parse(req.headers.authorization);
     const verifiedUser = await auth.protect(accessToken, refreshToken);
 
     if (!verifiedUser) return null; // unAuthenticated
